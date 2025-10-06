@@ -27,10 +27,12 @@ export const SensorDataProvider = ({ children }: { children: ReactNode }) => {
   const pollingRef = useRef<number | null>(null);
 
   useEffect(() => {
+    const API_BASE = (import.meta as any).env?.VITE_API_BASE || 'http://localhost:8080';
+
     const fetchLatest = async () => {
       try {
-        // Try backend on port 5000 first
-        const res = await fetch('http://localhost:5000/readings');
+        // Try configured backend base URL (default localhost:8080)
+        const res = await fetch(`${API_BASE}/readings`);
         if (!res.ok) throw new Error('Backend read failed');
         const data = await res.json();
         // API might return array of readings; pick last

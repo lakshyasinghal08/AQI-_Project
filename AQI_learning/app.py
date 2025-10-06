@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required
 from flask_cors import CORS
 import mysql.connector
@@ -11,7 +11,17 @@ import hashlib
 import secrets
 from werkzeug.utils import secure_filename
 import uuid
+from flask import Flask, request, jsonify
+app = Flask("app")
 
+@app.route('/data', methods=['POST'])
+def receive_data():
+    data = request.get_json()
+    print("Received data:", data)
+    return jsonify({"status": "success"}), 200
+
+if "app" == '_main_':
+    app.run(host='0.0.0.0', port=5000)
 app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = 'singhal08'
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
@@ -20,6 +30,28 @@ app.url_map.strict_slashes = False
 jwt = JWTManager(app)
 # Enable CORS for local development frontend (e.g., file:// and http://localhost:5173 or any origin)
 CORS(app, resources={r"/*": {"origins": "*"}})
+
+# Serve the built frontend (air-monitor-hub-main/dist) if it exists
+FRONTEND_DIST = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'air-monitor-hub-main', 'dist')
+if os.path.isdir(FRONTEND_DIST):
+    print(f"✅ Frontend dist found at {FRONTEND_DIST}; serving static files from backend.")
+
+    @app.route('/', defaults={'path': ''})
+    @app.route('/<path:path>')
+    def serve_frontend(path):
+        # If requesting an API route, don't serve frontend
+        if path.startswith('api') or path.startswith('readings') or path.startswith('health') or path.startswith('register') or path.startswith('login'):
+            return jsonify({"error": "Not a frontend asset"}), 404
+        if path == '' or path.endswith('/'):
+            index_path = os.path.join(FRONTEND_DIST, 'index.html')
+            return send_from_directory(FRONTEND_DIST, 'index.html')
+        # Serve static asset if exists
+        full_path = os.path.join(FRONTEND_DIST, path)
+        if os.path.exists(full_path):
+            return send_from_directory(FRONTEND_DIST, path)
+        # Fallback to index.html for SPA
+        return send_from_directory(FRONTEND_DIST, 'index.html')
+
 
 # Allowed file extensions for photos
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
@@ -675,6 +707,9 @@ if __name__ == '__main__':
     print("   Press Ctrl+C to stop the server")
     print("=" * 60)
     
+    # Determine final port (allow override via PORT env var or saved port_config.txt)
+    final_port = int(os.environ.get('PORT') or load_port_config() or port)
+
     # Try to open frontend automatically
     try:
         import webbrowser
@@ -685,8 +720,8 @@ if __name__ == '__main__':
             time.sleep(2)  # Wait for server to start
             frontend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'index.html'))
             if os.path.exists(frontend_path):
-                webbrowser.open(f'file://{frontend_path}')
-                print(f"🌐 Frontend opened automatically: {frontend_path}")
+                webbrowser.open(f'http://localhost:{final_port}/')
+                print(f"🌐 Frontend opened automatically at http://localhost:{final_port}/")
             else:
                 print("⚠️ Frontend file not found, please open index.html manually")
         
@@ -696,4 +731,5 @@ if __name__ == '__main__':
         print(f"⚠️ Could not open frontend automatically: {e}")
         print("   Please open index.html manually in your browser")
     
-    app.run(port=5000, debug=True)
+    print(f"🔗 Open the dashboard at: http://localhost:{final_port}/")
+    app.run(host='0.0.0.0', port=final_port, debug=True)
