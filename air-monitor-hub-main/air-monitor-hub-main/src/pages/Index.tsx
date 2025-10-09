@@ -4,10 +4,10 @@ import { WeatherComparisonSection } from "@/components/WeatherComparisonSection"
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+    <div className="min-h-screen bg-gradient-to-b from-muted/30 via-background to-muted/20">
       <Header />
       
-      <main className="pt-16">
+      <main className="pt-16 bg-gradient-to-b from-primary/5 to-transparent">
         <LiveAirQuality />
         <WeatherComparisonSection />
       </main>
@@ -19,9 +19,9 @@ const Index = () => {
             <div>
               <h3 className="text-base font-medium mb-3 text-muted-foreground">Name</h3>
               <ul className="space-y-2 text-foreground">
-                <li>LAKSHYA Singhal</li>
-                <li>LAKSHYA Goyal</li>
+                <li>Lakshya Goyal</li>
                 <li>Manish Sharma</li>
+                <li>Lakshya Singhal</li>
                 <li>Kuldeep Sihag</li>
                 <li>Kumawat Yogesh</li>
               </ul>
@@ -29,9 +29,9 @@ const Index = () => {
             <div>
               <h3 className="text-base font-medium mb-3 text-muted-foreground">RTU Rollno</h3>
               <ul className="space-y-2 text-foreground">
-                <li>24EARAD090</li>
                 <li>24EARAD089</li>
                 <li>24EARAD094</li>
+                <li>24EARAD090</li>
                 <li>24EARAD084</li>
                 <li>24EARAD085</li>
               </ul>

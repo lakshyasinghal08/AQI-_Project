@@ -8,7 +8,7 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
+    --background: 340 100% 98%;
     --foreground: 210 20% 10%;
 
     --card: 0 0% 100%;
@@ -45,7 +45,7 @@ All colors MUST be HSL.
     --radius: 0.75rem;
     
     --gradient-teal: linear-gradient(135deg, hsl(180 65% 45%), hsl(180 80% 55%));
-    --gradient-bg: linear-gradient(180deg, hsl(210 25% 98%), hsl(180 20% 95%));
+    --gradient-bg: linear-gradient(180deg, hsl(340 100% 98%), hsl(340 80% 96%));
     
     --shadow-card: 0 4px 6px -1px hsl(210 20% 10% / 0.08), 0 2px 4px -1px hsl(210 20% 10% / 0.06);
     --shadow-elevated: 0 10px 15px -3px hsl(210 20% 10% / 0.1), 0 4px 6px -2px hsl(210 20% 10% / 0.08);
@@ -127,5 +127,15 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  @keyframes slide-in-left {
+    0% { transform: translateX(-100%); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
+  }
+  .animate-slide-in-left {
+    animation: slide-in-left 0.4s ease-out both;
   }
 }

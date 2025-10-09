@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, redirect
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required
 from flask_cors import CORS
 import mysql.connector
@@ -12,6 +12,14 @@ import secrets
 from werkzeug.utils import secure_filename
 import uuid
 from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify
+app = Flask("app")
+
+@app.route('/sensor-data', methods=['POST'])
+def receive_sensor_data():
+    data = request.get_json()
+    print("Received data:", data)
+    return jsonify({"status": "success"}), 200
 app = Flask("app")
 
 @app.route('/data', methods=['POST'])
@@ -22,7 +30,7 @@ def receive_data():
 
 if "app" == '_main_':
     app.run(host='0.0.0.0', port=5000)
-app = Flask(__name__)
+app = Flask("app")
 app.config['JWT_SECRET_KEY'] = 'singhal08'
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB max file size
@@ -31,26 +39,66 @@ jwt = JWTManager(app)
 # Enable CORS for local development frontend (e.g., file:// and http://localhost:5173 or any origin)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# Serve the built frontend (air-monitor-hub-main/dist) if it exists
-FRONTEND_DIST = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'air-monitor-hub-main', 'dist')
-if os.path.isdir(FRONTEND_DIST):
-    print(f"✅ Frontend dist found at {FRONTEND_DIST}; serving static files from backend.")
+# Locate the built frontend (support both layouts used in this workspace)
+def locate_frontend_dist():
+    base = os.path.dirname(os.path.dirname(__file__))
+    candidates = [
+        os.path.join(base, 'air-monitor-hub-main', 'dist'),
+        os.path.join(base, 'air-monitor-hub-main', 'air-monitor-hub-main', 'dist'),
+        os.path.join(base, 'dist'),
+    ]
+    for p in candidates:
+        if os.path.isdir(p):
+            return p
+    return None
 
-    @app.route('/', defaults={'path': ''})
-    @app.route('/<path:path>')
-    def serve_frontend(path):
-        # If requesting an API route, don't serve frontend
-        if path.startswith('api') or path.startswith('readings') or path.startswith('health') or path.startswith('register') or path.startswith('login'):
-            return jsonify({"error": "Not a frontend asset"}), 404
+FRONTEND_DIST = locate_frontend_dist()
+DEV_SERVER_URL = 'http://localhost:5173'
+
+if FRONTEND_DIST:
+    print(f"✅ Frontend dist found at {FRONTEND_DIST}; serving static files from backend.")
+else:
+    # If no built frontend, check if Vite dev server is running and offer redirect
+    try:
+        resp = requests.get(DEV_SERVER_URL, timeout=1)
+        if resp.status_code in (200, 307, 304):
+            print(f"ℹ️ Vite dev server detected at {DEV_SERVER_URL}; backend will redirect browser requests to the dev server when appropriate.")
+            FRONTEND_DIST = None
+        else:
+            print(f"⚠️ No frontend build found and dev server not responding at {DEV_SERVER_URL} (status {resp.status_code}).")
+    except Exception:
+        print(f"⚠️ No frontend build found and dev server not reachable at {DEV_SERVER_URL}.")
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_frontend(path):
+    # If requesting an API route, don't serve frontend
+    api_prefixes = ('api', 'readings', 'health', 'register', 'login', 'upload-photo', 'remove-photo')
+    if any(path.startswith(p) for p in api_prefixes):
+        return jsonify({"error": "Not a frontend asset"}), 404
+
+    # If we have a built frontend, serve files from it
+    if FRONTEND_DIST:
         if path == '' or path.endswith('/'):
-            index_path = os.path.join(FRONTEND_DIST, 'index.html')
             return send_from_directory(FRONTEND_DIST, 'index.html')
-        # Serve static asset if exists
         full_path = os.path.join(FRONTEND_DIST, path)
         if os.path.exists(full_path):
             return send_from_directory(FRONTEND_DIST, path)
         # Fallback to index.html for SPA
         return send_from_directory(FRONTEND_DIST, 'index.html')
+
+    # No build found - if Vite dev server is available, redirect browser to it
+    try:
+        dev_check = requests.get(DEV_SERVER_URL, timeout=1)
+        if dev_check.status_code == 200:
+            # Redirect root to dev server (preserves SPA HMR and dev workflow)
+            target = DEV_SERVER_URL if path == '' else f"{DEV_SERVER_URL}/{path}"
+            return redirect(target)
+    except Exception:
+        pass
+
+    # Last resort: return helpful message
+    return jsonify({"error": "Frontend not built and dev server not running. Build the frontend or start the dev server."}), 500
 
 
 # Allowed file extensions for photos
@@ -130,7 +178,7 @@ mock_reading = {
     'co2': 450,
     'humidity': 65.5,
     'temperature': 24.3,
-    'username': 'mock_user',
+    'username': 'Lakshya',
     'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
 }
 
@@ -491,52 +539,21 @@ def receive_sensor_data():
         return jsonify({"error": "Failed to process sensor data"}), 500
 
 # ✅ Create unified readings endpoints expected by the frontend
-@app.route('/readings', methods=['POST'])
-def create_reading():
-    data = request.get_json(silent=True) or {}
-
-    pm10 = data.get('pm10')
-    pm25 = data.get('pm25')
-    co2 = data.get('co2')
-    humidity = data.get('humidity')
-    temperature = data.get('temperature')
-    username = data.get('username')
-
-    # Basic validation: allow partials but require at least one metric
-    if all(v is None for v in [pm10, pm25, co2, humidity, temperature]):
-        return jsonify({"error": "Provide at least one of pm10, pm25, co2, humidity, temperature"}), 400
-
-    if db_connected:
-        try:
-            cursor.execute(
-                "INSERT INTO sensor_readings (pm10, pm25, co2, humidity, temperature, username) VALUES (%s, %s, %s, %s, %s, %s)",
-                (pm10, pm25, co2, humidity, temperature, username)
-            )
-            db.commit()
-            new_id = cursor.lastrowid
-            return jsonify({"id": new_id, "message": "Reading stored"}), 201
-        except Exception as e:
-            print(f"Database error: {e}")
-            # Fall back to mock data
-            return jsonify({"id": 1, "message": "Reading stored (mock)"}), 201
-    else:
-        # Update mock data with new values
-        global mock_reading
-        if pm10 is not None:
-            mock_reading['pm10'] = pm10
-        if pm25 is not None:
-            mock_reading['pm25'] = pm25
-        if co2 is not None:
-            mock_reading['co2'] = co2
-        if humidity is not None:
-            mock_reading['humidity'] = humidity
-        if temperature is not None:
-            mock_reading['temperature'] = temperature
-        if username is not None:
-            mock_reading['username'] = username
-        mock_reading['timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S')
-        
-        return jsonify({"id": 1, "message": "Reading stored (mock)"}), 201
+# POST /readings endpoint has been disabled to prevent unauthenticated external writes
+# (This was a 'Postman hole' allowing anyone to inject readings). If you need to re-enable
+# controlled ingestion later, implement authentication or a secured endpoint.
+#
+# @app.route('/readings', methods=['POST'])
+# def create_reading():
+#     data = request.get_json(silent=True) or {}
+#     pm10 = data.get('pm10')
+#     pm25 = data.get('pm25')
+#     co2 = data.get('co2')
+#     humidity = data.get('humidity')
+#     temperature = data.get('temperature')
+#     username = data.get('username')
+#     # Function intentionally disabled. To accept readings, re-implement with proper auth.
+#     return jsonify({"error": "POST /readings is disabled on this server"}), 403
 
 
 @app.route('/readings', methods=['GET'])
