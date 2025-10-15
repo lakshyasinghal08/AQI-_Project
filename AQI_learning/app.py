@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, send_from_directory, redirect
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from flask_cors import CORS
 import mysql.connector
 import time
@@ -11,32 +11,18 @@ import hashlib
 import secrets
 from werkzeug.utils import secure_filename
 import uuid
-from flask import Flask, request, jsonify
-from flask import Flask, request, jsonify
-app = Flask("app")
 
-@app.route('/sensor-data', methods=['POST'])
-def receive_sensor_data():
-    data = request.get_json()
-    print("Received data:", data)
-    return jsonify({"status": "success"}), 200
-app = Flask("app")
 
-@app.route('/data', methods=['POST'])
-def receive_data():
-    data = request.get_json()
-    print("Received data:", data)
-    return jsonify({"status": "success"}), 200
+app = Flask(__name__)
 
-if "app" == '_main_':
-    app.run(host='0.0.0.0', port=5000)
-app = Flask("app")
+# Basic app configuration
 app.config['JWT_SECRET_KEY'] = 'singhal08'
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB max file size
 app.url_map.strict_slashes = False
+
+# Extensions
 jwt = JWTManager(app)
-# Enable CORS for local development frontend (e.g., file:// and http://localhost:5173 or any origin)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Locate the built frontend (support both layouts used in this workspace)
@@ -45,6 +31,8 @@ def locate_frontend_dist():
     candidates = [
         os.path.join(base, 'air-monitor-hub-main', 'dist'),
         os.path.join(base, 'air-monitor-hub-main', 'air-monitor-hub-main', 'dist'),
+        os.path.join(base, 'air-monitor-hub-11501-main', 'dist'),
+        os.path.join(base, 'air-monitor-hub-11501-main', 'air-monitor-hub-11501-main', 'dist'),
         os.path.join(base, 'dist'),
     ]
     for p in candidates:
@@ -239,8 +227,8 @@ except mysql.connector.Error as err:
     print("⚠️ Running in mock data mode")
 
 # Health endpoints for connectivity checks
-@app.route('/', methods=['GET'])
-def root():
+@app.route('/api-status', methods=['GET'])
+def api_status():
     return jsonify(status='ok')
 
 @app.route('/health', methods=['GET'])
@@ -349,9 +337,21 @@ def update_city():
     
     if db_connected:
         try:
-            # Get current user from JWT
-            current_user = request.json.get('user') or {}
-            user_id = current_user.get('id')
+            # Get current user identity from JWT
+            current_user = get_jwt_identity()
+            user_id = None
+            if isinstance(current_user, dict):
+                user_id = current_user.get('id')
+            # If JWT stored a username instead, try to look it up
+            if not user_id and isinstance(current_user, str):
+                # Attempt to look up user id by username
+                try:
+                    cursor.execute("SELECT id FROM users WHERE username = %s", (current_user,))
+                    row = cursor.fetchone()
+                    if row:
+                        user_id = row[0]
+                except Exception:
+                    pass
             
             if not user_id:
                 return jsonify({"error": "User not found"}), 400
@@ -484,59 +484,16 @@ def get_profile_photo(username):
         print(f"❌ Error getting profile photo: {e}")
         return jsonify({"imageUrl": None})
 
-@app.route('/api/sensor-data', methods=['POST'])
-def receive_sensor_data():
-    """Receive sensor data from ESP32 device"""
-    try:
-        data = request.get_json()
-        
-        if not data:
-            return jsonify({"error": "No data received"}), 400
-        
-        # Extract sensor readings
-        pm10 = data.get('pm10')
-        pm25 = data.get('pm25')
-        co2 = data.get('co2')
-        humidity = data.get('humidity')
-        temperature = data.get('temperature')
-        device_id = data.get('device_id', 'ESP32_001')
-        
-        print(f"📡 Received sensor data from {device_id}:")
-        print(f"   PM10: {pm10}, PM2.5: {pm25}, CO2: {co2}")
-        print(f"   Temperature: {temperature}°C, Humidity: {humidity}%")
-        
-        # Update mock data with real ESP32 data
-        global mock_reading
-        mock_reading.update({
-            'pm10': pm10 if pm10 is not None else mock_reading['pm10'],
-            'pm25': pm25 if pm25 is not None else mock_reading['pm25'],
-            'co2': co2 if co2 is not None else mock_reading['co2'],
-            'humidity': humidity if humidity is not None else mock_reading['humidity'],
-            'temperature': temperature if temperature is not None else mock_reading['temperature'],
-            'timestamp': time.time()
-        })
-        
-        # Store in database if connected
-        if db_connected:
-            try:
-                cursor.execute("""
-                    INSERT INTO readings (pm10, pm25, co2, humidity, temperature, device_id, timestamp)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """, (pm10, pm25, co2, humidity, temperature, device_id, time.time()))
-                db.commit()
-                print("✅ Sensor data stored in database")
-            except Exception as e:
-                print(f"❌ Database error storing sensor data: {e}")
-        
-        return jsonify({
-            "status": "success",
-            "message": "Sensor data received and processed",
-            "timestamp": time.time()
-        })
-        
-    except Exception as e:
-        print(f"❌ Error processing sensor data: {e}")
-        return jsonify({"error": "Failed to process sensor data"}), 500
+# Disabled unauthenticated sensor ingestion endpoint to prevent anonymous writes.
+# The original quick-test route has been intentionally removed. To accept device
+# uploads (ESP32), re-enable here only after adding authentication (API key or JWT)
+# or other protections. Example (disabled):
+#
+# @app.route('/api/sensor-data', methods=['POST'])
+# def receive_sensor_data():
+#     data = request.get_json()
+#     print("Received sensor data:", data)
+#     return jsonify({"status": "disabled"}), 403
 
 # ✅ Create unified readings endpoints expected by the frontend
 # POST /readings endpoint has been disabled to prevent unauthenticated external writes
@@ -689,32 +646,47 @@ def get_weather():
 
 # ✅ Run Server
 if __name__ == '__main__':
-    # Force port 5008 for consistency
-    port = 5008
-    
-    # Check if port 5008 is available, if not find alternative
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(('localhost', port))
-    except OSError:
-        print(f"⚠️ Port {port} is not available, finding alternative...")
-        port = find_free_port()
-        if port is None:
-            print("❌ Could not find a free port in range 5000-5099")
-            exit(1)
-    
-    save_port_config(port)
+    # Determine port with priority: PORT env -> saved port_config.txt -> prefer 5008 -> find_free_port()
+    env_port = os.environ.get('PORT')
+    saved_port = load_port_config()
+
+    final_port = None
+    if env_port:
+        try:
+            final_port = int(env_port)
+        except ValueError:
+            final_port = None
+
+    if not final_port and saved_port:
+        final_port = saved_port
+
+    # Prefer 5008 if available
+    if not final_port:
+        try:
+            test_port = 5008
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(('localhost', test_port))
+            final_port = test_port
+        except OSError:
+            final_port = find_free_port()
+
+    if final_port is None:
+        print("❌ Could not find a free port in range 5000-5099")
+        exit(1)
+
+    # Persist chosen port
+    save_port_config(final_port)
     
     print("=" * 60)
     print("🚀 AQI DASHBOARD APPLICATION STARTING")
     print("=" * 60)
-    print(f"📡 Backend URL: http://localhost:{port}")
-    print(f"🌐 Weather API: http://localhost:{port}/weather?city=CityName")
-    print(f"🔐 Login: POST http://localhost:{port}/login")
+    print(f"📡 Backend URL: http://localhost:{final_port}")
+    print(f"🌐 Weather API: http://localhost:{final_port}/weather?city=CityName")
+    print(f"🔐 Login: POST http://localhost:{final_port}/login")
     print("=" * 60)
     print("📱 FRONTEND ACCESS:")
     print(f"   Option 1: Open index.html in your browser")
-    print(f"   Option 2: http://localhost:{port}/static/index.html")
+    print(f"   Option 2: http://localhost:{final_port}/static/index.html")
     print("=" * 60)
     print("🔑 LOGIN CREDENTIALS:")
     print("   Username: admin")
@@ -725,7 +697,7 @@ if __name__ == '__main__':
     print("=" * 60)
     
     # Determine final port (allow override via PORT env var or saved port_config.txt)
-    final_port = int(os.environ.get('PORT') or load_port_config() or port)
+    # final_port already determined above; keep it.
 
     # Try to open frontend automatically
     try:
@@ -735,12 +707,21 @@ if __name__ == '__main__':
         
         def open_frontend():
             time.sleep(2)  # Wait for server to start
-            frontend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'index.html'))
-            if os.path.exists(frontend_path):
-                webbrowser.open(f'http://localhost:{final_port}/')
-                print(f"🌐 Frontend opened automatically at http://localhost:{final_port}/")
-            else:
-                print("⚠️ Frontend file not found, please open index.html manually")
+            try:
+                # If backend found a built frontend, open the server root which serves the SPA
+                if FRONTEND_DIST and os.path.isdir(FRONTEND_DIST):
+                    webbrowser.open(f'http://localhost:{final_port}/')
+                    print(f"🌐 Frontend opened automatically at http://localhost:{final_port}/")
+                    return
+                # Otherwise, look for a nearby index.html file (legacy fallback)
+                frontend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'index.html'))
+                if os.path.exists(frontend_path):
+                    webbrowser.open(f'http://localhost:{final_port}/')
+                    print(f"🌐 Frontend opened automatically at http://localhost:{final_port}/")
+                    return
+                print("⚠️ Frontend file not found, please open the dashboard manually in your browser")
+            except Exception as e:
+                print(f"⚠️ Error attempting to open browser: {e}")
         
         # Start frontend opening in a separate thread
         threading.Thread(target=open_frontend, daemon=True).start()

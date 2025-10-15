@@ -1,6 +1,9 @@
 import { useEffect } from "react";
 import { Heart } from "lucide-react";
 import { useSensorData } from "@/contexts/SensorDataContext";
+import { AQIDisplay } from "./AQIDisplay";
+import { getParameterStatus } from "@/lib/aqi";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export const LiveAirQuality = () => {
   const { sensorData, updateSensorData } = useSensorData();
@@ -27,35 +30,35 @@ export const LiveAirQuality = () => {
     sensorData.humidity <= 70 &&
     sensorData.temperature <= 40;
 
-  const getContextColor = (label: string) => {
-    const colors: Record<string, string> = {
-      "PM10": "#f39c12",
-      "PM2.5": "#e74c3c",
-      "CO2": "#2ecc71",
-      "Humidity": "#3498db",
-      "Temperature": "#9b59b6"
-    };
-    return colors[label] || "#4a90e2";
-  };
+  const pm10Status = getParameterStatus(sensorData.pm10, 'pm10');
+  const pm25Status = getParameterStatus(sensorData.pm25, 'pm25');
+  const co2Status = getParameterStatus(sensorData.co2, 'co2');
+  const humidityStatus = getParameterStatus(sensorData.humidity, 'humidity');
+  const tempStatus = getParameterStatus(sensorData.temperature, 'temperature');
 
   const readings = [
-    { label: "PM10", value: sensorData.pm10.toFixed(1), unit: "μg/m³", safe: sensorData.pm10 <= 100, color: getContextColor("PM10") },
-    { label: "PM2.5", value: sensorData.pm25.toFixed(1), unit: "μg/m³", safe: sensorData.pm25 <= 60, color: getContextColor("PM2.5") },
-    { label: "CO2", value: sensorData.co2.toFixed(0), unit: "ppm", safe: sensorData.co2 <= 1000, color: getContextColor("CO2") },
-    { label: "Humidity", value: sensorData.humidity.toFixed(1), unit: "%", safe: sensorData.humidity <= 70, color: getContextColor("Humidity") },
-    { label: "Temperature", value: sensorData.temperature.toFixed(1), unit: "°C", safe: sensorData.temperature <= 40, color: getContextColor("Temperature") },
+    { label: "PM10", value: sensorData.pm10.toFixed(1), unit: "μg/m³", ...pm10Status },
+    { label: "PM2.5", value: sensorData.pm25.toFixed(1), unit: "μg/m³", ...pm25Status },
+    { label: "CO2", value: sensorData.co2.toFixed(0), unit: "ppm", ...co2Status },
+    { label: "Humidity", value: sensorData.humidity.toFixed(1), unit: "%", ...humidityStatus },
+    { label: "Temperature", value: sensorData.temperature.toFixed(1), unit: "°C", ...tempStatus },
   ];
 
   return (
-    <section className="py-12 px-4">
-      <div className="container mx-auto max-w-6xl">
-        <h2 className="text-3xl font-bold text-center mb-12 text-accent animate-slide-in-left">
-          Live Air Quality of This Region
-        </h2>
-        
-        <div className="relative">
-          {/* Circular readings in radial layout */}
-          <div className="relative max-w-4xl mx-auto h-[500px]">
+    <TooltipProvider>
+      <section className="py-12 px-4">
+        <div className="container mx-auto max-w-6xl">
+          <h2 className="text-3xl font-bold text-center mb-8 text-accent animate-slide-in-left">
+            Live Air Quality of This Region
+          </h2>
+          
+          <div className="mb-12 max-w-2xl mx-auto">
+            <AQIDisplay pm25={sensorData.pm25} />
+          </div>
+          
+          <div className="relative">
+            {/* Circular readings in radial layout */}
+            <div className="relative max-w-4xl mx-auto h-[500px]">
             {/* Central heartbeat icon - positioned absolutely in the center */}
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
               <div className={`relative ${isHealthy ? 'text-success animate-pulse' : 'text-destructive'}`}>
@@ -104,9 +107,10 @@ export const LiveAirQuality = () => {
                 </div>
               );
             })}
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </TooltipProvider>
   );
 };
