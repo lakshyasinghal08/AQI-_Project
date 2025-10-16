@@ -100,14 +100,29 @@ export function useSensorDataSync(sensorData: SensorData) {
             }
 
             if (shouldAlert) {
-              await supabase
+              // Check if alert was already sent in the last hour
+              const oneHourAgo = new Date();
+              oneHourAgo.setHours(oneHourAgo.getHours() - 1);
+              
+              const { data: recentAlerts } = await supabase
                 .from('alert_logs')
-                .insert({
-                  user_id: user.id,
-                  alert_type: alert.alert_type,
-                  message,
-                  is_read: false
-                });
+                .select('id')
+                .eq('user_id', user.id)
+                .eq('alert_type', alert.alert_type)
+                .gte('created_at', oneHourAgo.toISOString())
+                .limit(1);
+
+              // Only insert if no recent alert exists
+              if (!recentAlerts || recentAlerts.length === 0) {
+                await supabase
+                  .from('alert_logs')
+                  .insert({
+                    user_id: user.id,
+                    alert_type: alert.alert_type,
+                    message,
+                    is_read: false
+                  });
+              }
             }
           }
         }

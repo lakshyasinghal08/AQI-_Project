@@ -4,6 +4,18 @@ import { WeatherComparisonSection } from "@/components/WeatherComparisonSection"
 import { SensorCharts } from "@/components/SensorCharts";
 import { HistoricalData } from "@/components/HistoricalData";
 import { AlertsPanel } from "@/components/AlertsPanel";
+import { AirSafetyScore } from "@/components/AirSafetyScore";
+import { ActivityRecommendations } from "@/components/ActivityRecommendations";
+import { SensorHealthMonitor } from "@/components/SensorHealthMonitor";
+import { EducationalCards } from "@/components/EducationalCards";
+import { EmergencyAlertBanner } from "@/components/EmergencyAlertBanner";
+import { SeasonalAQIInsights } from "@/components/SeasonalAQIInsights";
+import { PollutionSourceBreakdown } from "@/components/PollutionSourceBreakdown";
+import { PersonalizedHealthRisk } from "@/components/PersonalizedHealthRisk";
+import { CleanAirLeaderboard } from "@/components/CleanAirLeaderboard";
+import { AQITimelineSlider } from "@/components/AQITimelineSlider";
+import { EcoTipsSection } from "@/components/EcoTipsSection";
+import { EmergencyContacts } from "@/components/EmergencyContacts";
 import { useSensorData } from "@/contexts/SensorDataContext";
 import { useSensorDataSync } from "@/hooks/useSensorDataSync";
 import { useAuth } from "@/hooks/useAuth";
@@ -23,9 +35,24 @@ const Index = () => {
       <Header />
       
       <main className="pt-16">
+        <div className="container mx-auto px-4 mt-6">
+          <EmergencyAlertBanner />
+        </div>
+
         <LiveAirQuality />
         
-        <section className="py-16 px-4 bg-gradient-to-b from-primary/5 to-transparent">
+        {/* Air Safety & Recommendations */}
+        <section className="py-12 px-4 bg-gradient-to-b from-primary/5 to-transparent">
+          <div className="container mx-auto max-w-7xl">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
+              <AirSafetyScore />
+              <ActivityRecommendations />
+              <SensorHealthMonitor />
+            </div>
+          </div>
+        </section>
+
+        <section className="py-16 px-4">
           <div className="container mx-auto max-w-6xl">
             <h2 className="text-4xl font-bold text-center mb-4 text-gradient">Real-Time Data Visualization</h2>
             <p className="text-center text-muted-foreground mb-10 max-w-2xl mx-auto">
@@ -39,6 +66,21 @@ const Index = () => {
 
         {user ? (
           <>
+            {/* Insights & Analysis */}
+            <section className="py-12 px-4 bg-muted/20">
+              <div className="container mx-auto max-w-7xl">
+                <h2 className="text-3xl font-bold text-center mb-8 text-gradient">Insights & Analysis</h2>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                  <SeasonalAQIInsights />
+                  <PollutionSourceBreakdown />
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <PersonalizedHealthRisk />
+                  <AQITimelineSlider />
+                </div>
+              </div>
+            </section>
+
             <section className="py-16 px-4 bg-muted/30 backdrop-blur-sm">
               <div className="container mx-auto max-w-6xl">
                 <h2 className="text-4xl font-bold text-center mb-4 text-gradient">Historical Data Analysis</h2>
@@ -56,6 +98,26 @@ const Index = () => {
                   Configure custom alerts and stay informed about air quality changes
                 </p>
                 <AlertsPanel />
+              </div>
+            </section>
+
+            {/* Community & Education */}
+            <section className="py-12 px-4">
+              <div className="container mx-auto max-w-7xl">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                  <CleanAirLeaderboard />
+                  <EducationalCards />
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <EmergencyContacts />
+                </div>
+              </div>
+            </section>
+
+            {/* Eco Tips */}
+            <section className="py-12 px-4 bg-gradient-to-br from-success/5 to-primary/5">
+              <div className="container mx-auto max-w-7xl">
+                <EcoTipsSection />
               </div>
             </section>
 
@@ -87,7 +149,7 @@ const Index = () => {
         <div className="container mx-auto px-4 py-8">
           <div className="text-center mb-6">
             <h2 className="text-2xl font-bold text-gradient mb-2">Team Project - AI & DS - B</h2>
-            <p className="text-muted-foreground"> Air Quality Monitoring System</p>
+            <p className="text-muted-foreground">Advanced Air Quality Monitoring System</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             <div className="bg-muted/30 rounded-lg p-6">
@@ -95,15 +157,15 @@ const Index = () => {
               <ul className="space-y-2 text-foreground">
                 <li className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-primary"></div>
-                  LAKSHYA Goyal
+                  LAKSHYA Singhal
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-accent"></div>
-                  Manish Sharma
+                  LAKSHYA Goyal
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-success"></div>
-                  LAKSHYA Singhal
+                  Manish Sharma
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-warning"></div>
@@ -120,15 +182,15 @@ const Index = () => {
               <ul className="space-y-2 text-foreground font-mono text-sm">
                 <li className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-primary"></div>
-                  24EARAD089
+                  24EARAD090
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-accent"></div>
-                  24EARAD094
+                  24EARAD089
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-success"></div>
-                  24EARAD090
+                  24EARAD094
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-warning"></div>
