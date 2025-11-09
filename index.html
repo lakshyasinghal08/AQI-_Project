@@ -511,7 +511,7 @@
   
   <script>
     // Global variables
-    let backendUrl = 'http://localhost:5008'; // Updated backend URL
+    let backendUrl = 'http://localhost:5008'; // Will be updated by backend
     const backendStatus = document.getElementById('backend-status');
     let isAuthenticated = false;
     let currentUser = null;
@@ -1195,7 +1195,7 @@
       document.getElementById('temp-value').textContent = 'Loading...';
       
       // Fetch latest readings
-      fetch(`${backendUrl}/latest`)
+      fetch(`${backendUrl}/readings`)
         .then(response => {
           if (!response.ok) {
             throw new Error('Failed to fetch data');

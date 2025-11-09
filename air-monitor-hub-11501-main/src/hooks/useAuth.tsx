@@ -2,6 +2,7 @@ import { useState, useEffect, createContext, useContext, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { API_ENDPOINTS } from '@/lib/api';
 
 interface AuthContextType {
   user: User | null;
@@ -10,6 +11,7 @@ interface AuthContextType {
   loading: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -76,33 +78,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, fullName: string) => {
     try {
-      const redirectUrl = `${window.location.origin}/`;
-      
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: {
-            full_name: fullName
-          }
-        }
+      // Connect to our Flask backend instead of Supabase
+      const response = await fetch(API_ENDPOINTS.register, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: fullName,
+          email: email,
+          password: password,
+          city: 'Delhi' // Default city
+        }),
       });
-
-      if (error) {
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        const error = { message: data.error || 'Failed to register' };
         toast({
           title: 'Signup Error',
           description: error.message,
           variant: 'destructive'
         });
+        return { error };
       } else {
         toast({
           title: 'Success!',
           description: 'Account created successfully. You can now sign in.',
         });
+        return { error: null };
       }
 
-      return { error };
+      return { error: null };
     } catch (error: any) {
       toast({
         title: 'Signup Error',
@@ -115,27 +123,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password
+      // Connect to our Flask backend instead of Supabase
+      const response = await fetch(API_ENDPOINTS.login, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email,
+          password: password,
+        }),
       });
-
-      if (error) {
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        const error = { message: data.error || 'Failed to login' };
         toast({
           title: 'Login Error',
           description: error.message,
           variant: 'destructive'
         });
+        return { error };
+      } else {
+        // Assuming the backend returns a token or session info
+        // You might need to handle the response data here
+        // For now, just reloading the page to let the auth state listener do its work
+        window.location.reload();
+        return { error: null };
       }
-
-      return { error };
     } catch (error: any) {
       toast({
         title: 'Login Error',
-        description: error.message,
+        description: 'Failed to fetch',
         variant: 'destructive'
       });
       return { error };
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin
+        }
+      });
+
+      if (error) {
+        toast({
+          title: 'Google Login Error',
+          description: error.message,
+          variant: 'destructive'
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Google Login Error',
+        description: error.message,
+        variant: 'destructive'
+      });
     }
   };
 
@@ -149,7 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, isAdmin, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, isAdmin, loading, signUp, signIn, signInWithGoogle, signOut }}>
       {children}
     </AuthContext.Provider>
   );

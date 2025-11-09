@@ -149,7 +149,7 @@ const Index = () => {
         <div className="container mx-auto px-4 py-8">
           <div className="text-center mb-6">
             <h2 className="text-2xl font-bold text-gradient mb-2">Team Project - AI & DS - B</h2>
-            <p className="text-muted-foreground">Advanced Air Quality Monitoring System</p>
+            <p className="text-muted-foreground"> Air Quality Monitoring System</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             <div className="bg-muted/30 rounded-lg p-6">
@@ -157,15 +157,15 @@ const Index = () => {
               <ul className="space-y-2 text-foreground">
                 <li className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-primary"></div>
-                  LAKSHYA Singhal
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-accent"></div>
                   LAKSHYA Goyal
                 </li>
                 <li className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-success"></div>
+                  <div className="w-2 h-2 rounded-full bg-accent"></div>
                   Manish Sharma
+                </li>
+                <li className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-success"></div>
+                  LAKSHYA Singhal
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-warning"></div>
@@ -182,15 +182,15 @@ const Index = () => {
               <ul className="space-y-2 text-foreground font-mono text-sm">
                 <li className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-primary"></div>
-                  24EARAD090
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-accent"></div>
                   24EARAD089
                 </li>
                 <li className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-success"></div>
+                  <div className="w-2 h-2 rounded-full bg-accent"></div>
                   24EARAD094
+                </li>
+                <li className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-success"></div>
+                  24EARAD090
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-warning"></div>

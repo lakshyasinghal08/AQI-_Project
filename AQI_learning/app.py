@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, send_from_directory, redirect
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from flask_cors import CORS
-# import mysql.connector  # Commented out MySQL
+import mysql.connector
 import time
 import random
 import requests
@@ -41,24 +41,21 @@ def locate_frontend_dist():
     return None
 
 FRONTEND_DIST = locate_frontend_dist()
-DEV_SERVER_URL = 'http://localhost:8080'
+DEV_SERVER_URL = 'http://localhost:5173'
 
 if FRONTEND_DIST:
     print(f"✅ Frontend dist found at {FRONTEND_DIST}; serving static files from backend.")
 else:
     # If no built frontend, check if Vite dev server is running and offer redirect
     try:
-        resp = requests.get(DEV_SERVER_URL, timeout=3)
+        resp = requests.get(DEV_SERVER_URL, timeout=1)
         if resp.status_code in (200, 307, 304):
             print(f"ℹ️ Vite dev server detected at {DEV_SERVER_URL}; backend will redirect browser requests to the dev server when appropriate.")
             FRONTEND_DIST = None
         else:
             print(f"⚠️ No frontend build found and dev server not responding at {DEV_SERVER_URL} (status {resp.status_code}).")
-    except Exception as e:
-        print(f"⚠️ No frontend build found and dev server not reachable at {DEV_SERVER_URL}. Error: {e}")
-        # Force connection to dev server anyway
-        print(f"ℹ️ Forcing connection to Vite dev server at {DEV_SERVER_URL}")
-        FRONTEND_DIST = None
+    except Exception:
+        print(f"⚠️ No frontend build found and dev server not reachable at {DEV_SERVER_URL}.")
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
@@ -102,86 +99,6 @@ db_connected = False
 
 # OpenWeatherMap API key
 OWM_API_KEY = "0ed03441c5022238438f3b1788f82eb9"
-
-# ✅ Readings API Endpoints
-@app.route('/api/weather', methods=['GET'])
-def get_weather_api():
-    """Get weather data for a specific location"""
-    try:
-        lat = request.args.get('lat')
-        lon = request.args.get('lon')
-        
-        if not lat or not lon:
-            return jsonify({"error": "Latitude and longitude are required"}), 400
-            
-        # Use OpenWeatherMap API to get weather data
-        api_key = OWM_API_KEY  # Use the existing API key
-        weather_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
-        response = requests.get(weather_url)
-        
-        if response.status_code != 200:
-            return jsonify({"error": "Failed to fetch weather data"}), 500
-            
-        weather_data = response.json()
-        
-        # Extract relevant data
-        result = {
-            "temperature": weather_data["main"]["temp"],
-            "humidity": weather_data["main"]["humidity"],
-            "pm25": 25,  # Mock data for PM2.5
-            "pm10": 40   # Mock data for PM10
-        }
-        
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-@app.route('/readings', methods=['GET'])
-def get_readings():
-    """Get the latest sensor readings"""
-    try:
-        # Using mock data instead of database
-        # Generate slightly random values for demonstration
-        mock_data = {
-            'id': 1,
-            'pm10': round(random.uniform(30, 70), 1),
-            'pm25': round(random.uniform(10, 45), 1),
-            'co2': round(random.uniform(400, 1000)),
-            'humidity': round(random.uniform(60, 100), 1),
-            'temperature': round(random.uniform(22, 44), 1),
-            'username': 'Lakshya',
-            'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
-        }
-        return jsonify(mock_data)
-    except Exception as e:
-        print(f"Error getting readings: {e}")
-        return jsonify(mock_reading)
-
-@app.route('/readings', methods=['POST'])
-def submit_readings():
-    """Submit new sensor readings"""
-    try:
-        data = request.get_json()
-        
-        # Extract values with defaults
-        pm10 = float(data.get('pm10', 0))
-        pm25 = float(data.get('pm25', 0))
-        co2 = float(data.get('co2', 0))
-        humidity = float(data.get('humidity', 0))
-        temperature = float(data.get('temperature', 0))
-        username = data.get('username', 'Anonymous')
-        
-        if db and db.is_connected():
-            cursor.execute(
-                "INSERT INTO sensor_readings (pm10, pm25, co2, humidity, temperature, username) VALUES (%s, %s, %s, %s, %s, %s)",
-                (pm10, pm25, co2, humidity, temperature, username)
-            )
-            db.commit()
-            return jsonify({"message": "Readings submitted successfully", "status": "success"})
-        else:
-            return jsonify({"message": "Database not connected, data not saved", "status": "error"}), 503
-    except Exception as e:
-        print(f"Error submitting readings: {e}")
-        return jsonify({"message": f"Error: {str(e)}", "status": "error"}), 400
 
 def find_free_port():
     """Find a free port, preferring port 5008"""
@@ -253,8 +170,7 @@ mock_reading = {
     'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
 }
 
-# Try to connect to MySQL - COMMENTED OUT
-"""
+# Try to connect to MySQL
 try:
     db = mysql.connector.connect(
         host="localhost",
@@ -267,7 +183,7 @@ try:
 
     # Ensure the readings table exists and has expected columns
     cursor.execute(
-        
+        """
         CREATE TABLE IF NOT EXISTS sensor_readings (
             id INT AUTO_INCREMENT PRIMARY KEY,
             pm10 FLOAT NULL,
@@ -278,12 +194,12 @@ try:
             username VARCHAR(100) NULL,
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-        
+        """
     )
     
     # Create users table for multi-user support
     cursor.execute(
-        
+        """
         CREATE TABLE IF NOT EXISTS users (
             id INT AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(50) UNIQUE NOT NULL,
@@ -293,18 +209,22 @@ try:
             profile_photo VARCHAR(255),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-        
+        """
     )
     db.commit()
 
     # Try ensure username column exists for older tables
-"""
-
-# Using mock data instead
-db = None
-cursor = None
-db_connected = False
-print("⚠️ Running in mock data mode")
+    try:
+        cursor.execute("ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS username VARCHAR(100) NULL")
+        db.commit()
+    except Exception:
+        pass
+    
+    db_connected = True
+    print("✅ Database connected successfully")
+except mysql.connector.Error as err:
+    print(f"❌ Database connection failed: {err}")
+    print("⚠️ Running in mock data mode")
 
 # Health endpoints for connectivity checks
 @app.route('/api-status', methods=['GET'])
